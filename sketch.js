@@ -1,44 +1,59 @@
+let handpose;
+let video;
+let predictions = [];
 
-        let faceMesh;
-        let mCamera;
-        let faces = [];
-        let ladybug;
-        let ladybugIndex = 0;
+function setup() {
+  createCanvas(windowWidth, windowHeight);
 
-        function preload() {
-            faceMesh = ml5.faceMesh(gotFaces);
-            ladybug = loadImage('https://upload.wikimedia.org/wikipedia/commons/6/6e/Ladybird_%28Coccinellidae%29.jpg'); // Placeholder image
-        }
+  // Initialize webcam capture
+  video = createCapture(VIDEO);
+  video.size(windowWidth, windowHeight);
+  video.hide();
 
-        function setup() {
-            let canvas = createCanvas(windowWidth, windowHeight);
-            canvas.parent(document.body);
-            mCamera = createCapture(VIDEO, { flipped: true });
-            mCamera.size(windowWidth, windowHeight);
-            mCamera.hide();
-            faceMesh.detect(mCamera);
-        }
+  // Initialize Handpose with the video element and a callback when the model is ready
+  handpose = ml5.handpose(video, modelReady);
 
-        function draw() {
-            background(180, 200, 255);
-            image(mCamera, 0, 0, width, height);
-            
-            if (faces.length > 0) {
-                let face = faces[0];
-                if (face.keypoints.length > 0) {
-                    let keypoint = face.keypoints[ladybugIndex % face.keypoints.length];
-                    image(ladybug, keypoint.x - 10, keypoint.y - 10, 20, 20);
-                    ladybugIndex++;
-                }
-            }
-        }
+  // Listen for new predictions
+  handpose.on("predict", results => {
+    predictions = results;
+    console.log("Hands detected:", results);
+  });
+}
 
-        function gotFaces(results) {
-            faces = results;
-        }
+function modelReady() {
+  console.log("Handpose model loaded successfully.");
+}
 
-        function windowResized() {
-            resizeCanvas(windowWidth, windowHeight);
-            mCamera.size(windowWidth, windowHeight);
-        }
+function draw() {
+  background(180, 200, 255);
 
+  // Optionally, you can mirror the video by using push/pop with translate/scale:
+  // push();
+  // translate(width, 0);
+  // scale(-1, 1);
+  // image(video, 0, 0, width, height);
+  // pop();
+  
+  // For now, we just draw the video normally:
+  image(video, 0, 0, width, height);
+
+  // If at least one hand is detected, draw an ellipse over the palm base.
+  if (predictions.length > 0) {
+    let hand = predictions[0];
+    let palmBase = hand.landmarks[0];   // Palm base keypoint
+    let thumbTip = hand.landmarks[4];     // Thumb tip keypoint
+    let pinkyTip = hand.landmarks[20];    // Pinky tip keypoint
+
+    // Calculate an approximate hand size based on the distance between thumb tip and pinky tip.
+    let handSize = dist(thumbTip[0], thumbTip[1], pinkyTip[0], pinkyTip[1]);
+
+    fill(255, 204, 0, 150); // Semi-transparent yellow
+    noStroke();
+    ellipse(palmBase[0], palmBase[1], handSize * 1.5, handSize * 1.5); // Draw ellipse at palm base
+  }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  video.size(windowWidth, windowHeight);
+}
